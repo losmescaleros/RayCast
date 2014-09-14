@@ -1,31 +1,76 @@
-mtllib cube.mtl
+# OBJ file for Ben Watson's Ray Tracing Project
+# Complaints to Dave Crist  :)
+#  davecrist@mac.com
 
-v 0.000000 2.000000 2.000000
-v 0.000000 0.000000 2.000000
-v 2.000000 0.000000 2.000000
-v 2.000000 2.000000 2.000000
-v 0.000000 2.000000 0.000000
-v 0.000000 0.000000 0.000000
-v 2.000000 0.000000 0.000000
-v 2.000000 2.000000 0.000000
-# 8 vertices
 
-g front cube
-usemtl white
-f 1 2 3 4
-g back cube
-# expects white material
-f 8 7 6 5
-g right cube
-usemtl red
-f 4 3 7 8
-g top cube
-usemtl white
-f 5 1 4 8
-g left cube
-usemtl green
-f 5 6 2 1
-g bottom cube
-usemtl white
-f 2 6 7 3
-# 6 elements
+mtllib cube2.mtl
+
+#g
+v -1 -1 -1
+v -1 1 -1
+v 1 1 -1
+v 1 -1 -1
+v -1 -1 1
+v -1 1 1
+v 1 1 1
+v 1 -1 1
+
+v  0.05 .999  1.95
+v -0.05 .999  1.95
+v  0.05 .999 2.05
+v -0.05 .999 2.05
+
+g gray_top
+s off
+f 6 7 2
+f 7 3 2
+
+g gray_far
+s off
+f 2 3 1
+f 3 4 1
+
+g gray_bottom
+s off
+f 4 8 1
+f 8 5 1
+
+g right
+s off
+f 3 7 4
+f 7 8 4
+
+g left
+s off
+f 6 2 5
+f 2 1 5
+
+
+#we don't want the front
+#g front
+#f 7 6 8
+#f 6 5 8
+
+############# Light
+g light0
+s off
+f 9 12 10
+f 9 11 12
+
+group left
+usemtl left
+
+group right
+usemtl right
+
+group gray_top
+usemtl gray_top
+
+group gray_far
+usemtl gray_far
+
+group gray_bottom
+usemtl gray_bottom
+
+group light0
+usemtl light0
