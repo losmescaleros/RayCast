@@ -1,0 +1,11 @@
+mtllib cube.mtl
+
+# 3 vertices
+v 0.000000 0.000000 0.000000
+v 1.000000 1.000000 1.000000
+v 1.000000 0.000000 0.000000
+
+
+# 1 triangle element
+g example
+f 1 2 3
