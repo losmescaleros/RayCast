@@ -1,11 +1,21 @@
-mtllib cube.mtl
 
-# 3 vertices
-v 0.000000 0.000000 0.000000
-v 1.000000 1.000000 1.000000
-v 1.000000 0.000000 0.000000
+mtllib triangle.mtl
 
+# 6 vertices
+v 0.000000 1.000000 -1.000000
+v -1.000000 -1.000000 -1.000000
+v 1.000000 -1.000000 -1.000000
+v -1.000000 1.000000 -0.200000
+v 1.000000 1.000000 -0.200000
+v 0.000000 -1.000000 -0.200000
 
-# 1 triangle element
-g example
+# 2 triangle elements
+g triangle1
+usemtl green
 f 1 2 3
+
+g triangle2
+usemtl blue
+f 4 5 6
+
+

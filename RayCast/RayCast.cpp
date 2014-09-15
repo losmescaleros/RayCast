@@ -15,6 +15,9 @@ static HWND sHwnd;
 static COLORREF redColor = RGB(255, 0, 0);
 static COLORREF blueColor = RGB(0, 0, 255);
 static COLORREF greenColor = RGB(0, 255, 0);
+static COLORREF blackColor = RGB(0, 0, 0);
+
+double prevT;
 
 // Global Variables:
 HINSTANCE hInst;								// current instance
@@ -25,12 +28,14 @@ TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 std::vector<tinyobj::shape_t> shapes;
 std::vector<std::vector<float>> shapeNormals;
 
-std::vector<int> eyePosition;
-std::vector<int> lookAtVector;
-std::vector<int> lookUpVector;
-std::vector<int> windowTopLeft;
-std::vector<int> windowBottomRight;
-std::vector<int> windowCenterPosition;
+std::vector<double> eyePosition;
+std::vector<double> lookAtVector;
+std::vector<double> lookUpVector;
+std::vector<double> windowTopLeft;
+std::vector<double> windowBottomRight;
+std::vector<double> windowCenterPosition;
+std::vector<double> lightLocation;
+std::vector<double> lightIntensity;
 
 // Forward declarations of functions included in this code module:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -45,6 +50,9 @@ void SetWindowHandle(HWND hwnd);
 
 // Forward declarations for my functions
 void LoadObj(std::string inputFile);
+std::vector<double> CalculateShapeNormalVector(tinyobj::shape_t shape);
+int RayTriIntersect(std::vector<double> eye, std::vector<double> point);
+std::vector<double> ConvertLocalToGlobalCoordinates(std::vector<double> windowCoordinates, int pixelX, int pixelY);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -65,6 +73,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	lookUpVector = { 0, 1, 0 };
 	windowTopLeft = { -1, 1, -1 };
 	windowBottomRight = { 1, -1, -1 };
+	lightLocation = { 0, 2, 0 };
+	lightIntensity = { 1, 1, 1 };
 
 	// Load the OBJ file
 	//std::string inputFile = "cube.obj";
@@ -241,51 +251,171 @@ void LoadObj(std::string inputFile)
 		std::cerr << errors << std::endl;
 		exit(1);
 	}
-
-
-	for (int i = 0; i < shapes.size(); i++)
-	{
-		// Get vector A
-		std::vector<float> vectorA = { 0, 0, 0 };
-		vectorA[0] = abs(shapes[i].mesh.positions[0] - shapes[i].mesh.positions[3]);
-		vectorA[1] = abs(shapes[i].mesh.positions[1] - shapes[i].mesh.positions[4]);
-		vectorA[2] = abs(shapes[i].mesh.positions[2] - shapes[i].mesh.positions[5]);
-		// Get vector B
-		std::vector<float> vectorB = { 0, 0, 0 };
-		vectorB[0] = abs(shapes[i].mesh.positions[0] - shapes[i].mesh.positions[6]);
-		vectorB[1] = abs(shapes[i].mesh.positions[1] - shapes[i].mesh.positions[7]);
-		vectorB[2] = abs(shapes[i].mesh.positions[2] - shapes[i].mesh.positions[8]);
-
-		std::vector<float> normalVector;
-		// Nx = AyBz - AzBy
-		normalVector.push_back(vectorA[1] * vectorB[2] - vectorA[2] * vectorB[1]);
-		//shapeNormals[i][0] = vectorA[1] * vectorB[2] - vectorA[2] * vectorB[1];
-		
-		// Ny = AzBx - AxBz
-		normalVector.push_back(vectorA[2] * vectorB[0] - vectorA[0] * vectorB[2]);
-		//shapeNormals[i][1] = vectorA[2] * vectorB[0] - vectorA[0] * vectorB[2];
-
-		// Nz = AxBy - AyBx
-		normalVector.push_back(vectorA[0] * vectorB[1] - vectorA[1] * vectorB[0]);
-		//shapeNormals[i][2] = vectorA[0] * vectorB[1] - vectorA[1] * vectorB[0];
-
-		// Add the normal vector to the list, which should be one-to-one with the shapes list
-		shapeNormals.push_back(normalVector);
-	}
-
+	
 	std::cout << "# of shapes: " << shapes.size() << std::endl;
-
 
 }
 
+std::vector<double> CalculateShapeNormalVector(tinyobj::shape_t shape)
+{	
+		// Get vector A
+		std::vector<double> vectorA = { 0, 0, 0 };
+		vectorA[0] = shape.mesh.positions[3] - shape.mesh.positions[0];
+		vectorA[1] = shape.mesh.positions[4] - shape.mesh.positions[1];
+		vectorA[2] = shape.mesh.positions[5] - shape.mesh.positions[2];
+		// Get vector B
+		std::vector<double> vectorB = { 0, 0, 0 };
+		vectorB[0] = shape.mesh.positions[6] - shape.mesh.positions[0];
+		vectorB[1] = shape.mesh.positions[7] - shape.mesh.positions[1];
+		vectorB[2] = shape.mesh.positions[8] - shape.mesh.positions[2];
+
+		std::vector<double> normalVector;
+		// Nx = AyBz - AzBy
+		normalVector.push_back(vectorA[1] * vectorB[2] - vectorA[2] * vectorB[1]);
+
+		// Ny = AzBx - AxBz
+		normalVector.push_back(vectorA[2] * vectorB[0] - vectorA[0] * vectorB[2]);
+
+		// Nz = AxBy - AyBx
+		normalVector.push_back(vectorA[0] * vectorB[1] - vectorA[1] * vectorB[0]);
+
+		return normalVector;
+}
+
+int RayTriIntersect(std::vector<double> eye, std::vector<double> point)
+{
+	int indexOfClosestShape = -1;
+	double previousT = 3;
+
+	for (int index = 0; index < shapes.size(); index++)
+	{
+		tinyobj::shape_t shape = shapes[index];
+
+		double a = shape.mesh.positions[0] - shape.mesh.positions[3];
+		double b = shape.mesh.positions[1] - shape.mesh.positions[4];
+		double c = shape.mesh.positions[2] - shape.mesh.positions[5];
+		double d = shape.mesh.positions[0] - shape.mesh.positions[6];
+		double e = shape.mesh.positions[1] - shape.mesh.positions[7];
+		double f = shape.mesh.positions[2] - shape.mesh.positions[8];
+		double g = point[0] - eye[0];
+		double h = point[1] - eye[1];
+		double i = point[2] - eye[2];
+		double j = shape.mesh.positions[0] - eye[0];
+		double k = shape.mesh.positions[1] - eye[1];
+		double l = shape.mesh.positions[2] - eye[2];
+
+		double M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h - e*g);
+
+		// Compute t
+		double t = -(f*(a*k - j*b) + e*(j*c - a*l) + d*(b*l - k*c)) / M;
+
+		// If t > previous t, then this shape is farther away and will be occluded
+		if (t < 0 || t > previousT)
+		{
+			continue;
+		}
+
+		double gamma = (i*(a*k - j*b) + h*(j*c - a*l) + g*(b*l - k*c)) / M;
+		if (gamma < 0 || gamma > 1)
+		{
+			continue;
+		}
+
+		double beta = (j*(e*i - h*f) + k*(g*f - d*i) + l*(d*h - e*g)) / M;
+		if (beta < 0 || beta >(1 - gamma))
+		{
+			continue;
+		}
+
+		previousT = t;
+		indexOfClosestShape = index;
+	}
+	
+	return indexOfClosestShape;
+}
+
+std::vector<double> ConvertLocalToGlobalCoordinates(std::vector<double> windowCoordinates, int pixelX, int pixelY)
+{
+	std::vector<double> globalCoordinates;
+
+	globalCoordinates.push_back(windowCoordinates[0] + ((float) pixelX / W_WIDTH_PIXELS) * W_WIDTH);
+
+	globalCoordinates.push_back(windowCoordinates[1] - ((float)pixelY / W_WIDTH_PIXELS) * W_WIDTH);
+
+	globalCoordinates.push_back(windowCoordinates[2]);
+
+	return globalCoordinates;
+}
+
+
 void DrawColor()
 {
-	for (int y = 0; y < W_HEIGHT_PIXELS; y++){
-		for (int x = 0; x < W_WIDTH_PIXELS; x++){
+	for (int y = 0; y <= W_HEIGHT_PIXELS; y++){
+		for (int x = 0; x <= W_WIDTH_PIXELS; x++){
+			if (x == 128 && y == 128){
+				bool something = true;
+			}
 			// Find the pixel in world coordinates
-			float pixelX = windowTopLeft[0] + ((float)x / W_WIDTH_PIXELS) * W_WIDTH;
-			float pixelY = windowTopLeft[1] - ((float)x / W_WIDTH_PIXELS) * W_WIDTH;
-			float pixelZ = (float)windowCenterPosition[2];
+			std::vector<double> globalCoordinates = ConvertLocalToGlobalCoordinates(windowTopLeft, x, y);
+
+			// Make a hit record for this pixel location
+			int lastIntersectedShape = RayTriIntersect(eyePosition, globalCoordinates);
+			
+			
+			if (lastIntersectedShape != -1)
+			{
+				tinyobj::shape_t shape = shapes[lastIntersectedShape];
+				if (globalCoordinates[0] == 0 && globalCoordinates[1] == 1 && globalCoordinates[2] == -1)
+				{
+					bool want = true;
+				}
+				// Calculate the pixel's color
+				double Lx = globalCoordinates[0] - lightLocation[0];
+				double Ly = globalCoordinates[1] - lightLocation[1];
+				double Lz = globalCoordinates[2] - lightLocation[2];
+
+				std::vector<double> normalVector = CalculateShapeNormalVector(shape);
+				double NdotL = normalVector[0] * Lx + normalVector[1] * Ly + normalVector[2] * Lz;
+				
+				double Vx = globalCoordinates[0] - eyePosition[0];
+				double Vy = globalCoordinates[1] - eyePosition[1];
+				double Vz = globalCoordinates[2] - eyePosition[2];
+				std::vector<double> LPlusV = { Lx + Vx, Ly + Vy, Lz + Vz };
+
+				double LPlusVMagnitude = sqrt(pow(LPlusV[0], 2) + pow(LPlusV[1], 2) + pow(LPlusV[2], 2));
+
+				std::vector<double> H = { LPlusV[0] / LPlusVMagnitude, LPlusV[1] / LPlusVMagnitude, LPlusV[2] / LPlusVMagnitude };
+
+				double HdotN = H[0] * normalVector[0] + H[1] * normalVector[1] + H[2] * normalVector[2];
+
+				//double redIntensity = /*max((*/lightIntensity[0] * shape.material.ambient[0] + lightIntensity[0] * shape.material.diffuse[0] * NdotL +
+				//	lightIntensity[0] * shape.material.specular[0] * HdotN/*), 0)*/;
+
+				//double greenIntensity = /*max((*/lightIntensity[1] * shape.material.ambient[1] + lightIntensity[1] * shape.material.diffuse[1] * NdotL +
+				//	lightIntensity[1] * shape.material.specular[1] * HdotN/*), 0)*/;
+
+				//double blueIntensity = /*max((*/lightIntensity[2] * shape.material.ambient[2] + lightIntensity[2] * shape.material.diffuse[2] * NdotL +
+				//	lightIntensity[2] * shape.material.specular[2] * HdotN/*), 0)*/;
+				double redIntensity = shape.material.ambient[0] + shape.material.diffuse[0];
+				double greenIntensity = shape.material.ambient[1] + shape.material.diffuse[1];
+				double blueIntensity = shape.material.ambient[2] + shape.material.diffuse[2];
+
+				if (redIntensity > 1){
+					redIntensity = 1;
+				}
+				if (greenIntensity > 1){
+					greenIntensity = 1;
+				}
+				if (blueIntensity > 1){
+					blueIntensity = 1;
+				}
+				COLORREF color = RGB(redIntensity*255, greenIntensity*255, blueIntensity*255);
+				SetPixel(x, y, color);
+			}
+			else
+			{
+				SetPixel(x, y, blackColor);
+			}
 		}
 	}
 	/*for (int y = 0; y < 100; y++)
