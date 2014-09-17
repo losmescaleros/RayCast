@@ -47,12 +47,20 @@ void SetWindowHandle(void);
 void SetPixel(int x, int y, COLORREF& color);
 void DrawColor(void);
 void SetWindowHandle(HWND hwnd);
+double CalculateVectorMagnitude(std::vector<double> vector);
+std::vector<double> NormalizeVector(std::vector<double> vector);
 
 // Forward declarations for my functions
 void LoadObj(std::string inputFile);
 std::vector<double> CalculateShapeNormalVector(tinyobj::shape_t shape);
-int RayTriIntersect(std::vector<double> eye, std::vector<double> point);
+bool RayTriIntersect(std::vector<double> eye,
+	std::vector<double> point,
+	std::vector<double> vertexA,
+	std::vector<double> vertexB,
+	std::vector<double> vertexC,
+	double* previousT);
 std::vector<double> ConvertLocalToGlobalCoordinates(std::vector<double> windowCoordinates, int pixelX, int pixelY);
+bool TestShapes(std::vector<double> point, int* shapeIndex, int* triangleIndex);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -67,18 +75,22 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	HACCEL hAccelTable;
 
 	// Define the eye position
-	eyePosition = { 0, 0, -2 };
+	eyePosition = { 0, 0, 3 };
 	windowCenterPosition = { 0, 0, -1 };
 	lookAtVector = { 0, 0, 1 };
 	lookUpVector = { 0, 1, 0 };
-	windowTopLeft = { -1, 1, -1 };
-	windowBottomRight = { 1, -1, -1 };
+	windowTopLeft = { -1, 1, 1 };
+	windowBottomRight = { 1, -1, 1 };
 	lightLocation = { 0, 2, 0 };
 	lightIntensity = { 1, 1, 1 };
 
+	std::vector<double> v = { 0, 2, 4 };
+
+	double mag = CalculateVectorMagnitude(v);
+
 	// Load the OBJ file
 	//std::string inputFile = "cube.obj";
-	std::string inputFile = "triangle.obj";
+	std::string inputFile = "./inputs/triangle.obj";
 	LoadObj(inputFile);
 
 	// Initialize global strings
@@ -243,10 +255,11 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 void LoadObj(std::string inputFile)
 {	
+	std::vector<tinyobj::material_t> materials;
 	
+	std::string errors = tinyobj::LoadObj(shapes, inputFile.c_str(), "./inputs/");
 
-	std::string errors = tinyobj::LoadObj(shapes, inputFile.c_str());
-
+	
 	if (!errors.empty()){		
 		std::cerr << errors << std::endl;
 		exit(1);
@@ -256,19 +269,8 @@ void LoadObj(std::string inputFile)
 
 }
 
-std::vector<double> CalculateShapeNormalVector(tinyobj::shape_t shape)
+std::vector<double> CalculateNormalVector(std::vector<double> vectorA, std::vector<double> vectorB)
 {	
-		// Get vector A
-		std::vector<double> vectorA = { 0, 0, 0 };
-		vectorA[0] = shape.mesh.positions[3] - shape.mesh.positions[0];
-		vectorA[1] = shape.mesh.positions[4] - shape.mesh.positions[1];
-		vectorA[2] = shape.mesh.positions[5] - shape.mesh.positions[2];
-		// Get vector B
-		std::vector<double> vectorB = { 0, 0, 0 };
-		vectorB[0] = shape.mesh.positions[6] - shape.mesh.positions[0];
-		vectorB[1] = shape.mesh.positions[7] - shape.mesh.positions[1];
-		vectorB[2] = shape.mesh.positions[8] - shape.mesh.positions[2];
-
 		std::vector<double> normalVector;
 		// Nx = AyBz - AzBy
 		normalVector.push_back(vectorA[1] * vectorB[2] - vectorA[2] * vectorB[1]);
@@ -279,60 +281,113 @@ std::vector<double> CalculateShapeNormalVector(tinyobj::shape_t shape)
 		// Nz = AxBy - AyBx
 		normalVector.push_back(vectorA[0] * vectorB[1] - vectorA[1] * vectorB[0]);
 
+		normalVector = NormalizeVector(normalVector);
+
 		return normalVector;
 }
 
-int RayTriIntersect(std::vector<double> eye, std::vector<double> point)
+double CalculateVectorMagnitude(std::vector<double> vector)
 {
-	int indexOfClosestShape = -1;
-	double previousT = 3;
+	double magntiude = sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
 
-	for (int index = 0; index < shapes.size(); index++)
-	{
-		tinyobj::shape_t shape = shapes[index];
-
-		double a = shape.mesh.positions[0] - shape.mesh.positions[3];
-		double b = shape.mesh.positions[1] - shape.mesh.positions[4];
-		double c = shape.mesh.positions[2] - shape.mesh.positions[5];
-		double d = shape.mesh.positions[0] - shape.mesh.positions[6];
-		double e = shape.mesh.positions[1] - shape.mesh.positions[7];
-		double f = shape.mesh.positions[2] - shape.mesh.positions[8];
-		double g = point[0] - eye[0];
-		double h = point[1] - eye[1];
-		double i = point[2] - eye[2];
-		double j = shape.mesh.positions[0] - eye[0];
-		double k = shape.mesh.positions[1] - eye[1];
-		double l = shape.mesh.positions[2] - eye[2];
-
-		double M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h - e*g);
-
-		// Compute t
-		double t = -(f*(a*k - j*b) + e*(j*c - a*l) + d*(b*l - k*c)) / M;
-
-		// If t > previous t, then this shape is farther away and will be occluded
-		if (t < 0 || t > previousT)
-		{
-			continue;
-		}
-
-		double gamma = (i*(a*k - j*b) + h*(j*c - a*l) + g*(b*l - k*c)) / M;
-		if (gamma < 0 || gamma > 1)
-		{
-			continue;
-		}
-
-		double beta = (j*(e*i - h*f) + k*(g*f - d*i) + l*(d*h - e*g)) / M;
-		if (beta < 0 || beta >(1 - gamma))
-		{
-			continue;
-		}
-
-		previousT = t;
-		indexOfClosestShape = index;
-	}
-	
-	return indexOfClosestShape;
+	return magntiude;
 }
+
+std::vector<double> NormalizeVector(std::vector<double> vector)
+{
+	double magnitude = CalculateVectorMagnitude(vector);
+
+	std::vector<double> normalizedVector;
+	normalizedVector.push_back(vector[0] / magnitude);
+
+	normalizedVector.push_back(vector[1] / magnitude);
+
+	normalizedVector.push_back(vector[2] / magnitude);
+
+	return normalizedVector;
+}
+
+bool RayTriIntersect(std::vector<double> eye, 
+	std::vector<double> point, 
+	std::vector<double> vertexA, 
+	std::vector<double> vertexB, 
+	std::vector<double> vertexC, 
+	double* previousT)
+{
+	double a = vertexA[0] - vertexB[0];
+	double b = vertexA[1] - vertexB[1];
+	double c = vertexA[2] - vertexB[2];
+	double d = vertexA[0] - vertexC[0];
+	double e = vertexA[1] - vertexC[1];
+	double f = vertexA[2] - vertexC[2];
+	double g = point[0] - eye[0];
+	double h = point[1] - eye[1];
+	double i = point[2] - eye[2];
+	double j = vertexA[0] - eye[0];
+	double k = vertexA[1] - eye[1];
+	double l = vertexA[2] - eye[2];
+
+	double M = a*(e*i - h*f) + b*(g*f - d*i) + c*(d*h - e*g);
+
+	// Compute t
+	double t = -(f*(a*k - j*b) + e*(j*c - a*l) + d*(b*l - k*c)) / M;
+
+	// If t > previous t, then this shape is farther away and will be occluded
+	if (t < 0 || t > *previousT)
+	{
+		return false;
+	}
+
+	double gamma = (i*(a*k - j*b) + h*(j*c - a*l) + g*(b*l - k*c)) / M;
+	if (gamma < 0 || gamma > 1)
+	{
+		return false;
+	}
+
+	double beta = (j*(e*i - h*f) + k*(g*f - d*i) + l*(d*h - e*g)) / M;
+	if (beta < 0 || beta >(1 - gamma))
+	{
+		return false;
+	}
+
+	*previousT = t;
+
+	return true;
+}
+
+
+bool TestShapes(std::vector<double> point, int* shapeIndex, int* triangleIndex)
+{
+	bool hitsSomething = false;
+
+	double t = 3;
+
+	for (int s = 0; s < shapes.size(); s++)
+	{
+		for (int i = 0; i < shapes[s].mesh.indices.size() / 3; i++)
+		{
+			int indexA = shapes[s].mesh.indices[3 * i];
+			int indexB = shapes[s].mesh.indices[3 * i + 1];
+			int indexC = shapes[s].mesh.indices[3 * i + 2];
+
+			std::vector<double> vertexA = { shapes[s].mesh.positions[3 * indexA], shapes[s].mesh.positions[3 * indexA + 1], shapes[s].mesh.positions[3 * indexA + 2] };
+			std::vector<double> vertexB = { shapes[s].mesh.positions[3 * indexB], shapes[s].mesh.positions[3 * indexB + 1], shapes[s].mesh.positions[3 * indexB + 2] };
+			std::vector<double> vertexC = { shapes[s].mesh.positions[3 * indexC], shapes[s].mesh.positions[3 * indexC + 1], shapes[s].mesh.positions[3 * indexC + 2] };
+
+			bool hitsThis = RayTriIntersect(eyePosition, point, vertexA, vertexB, vertexC, &t);
+
+			if (hitsThis)
+			{
+				*shapeIndex = s;
+				*triangleIndex = i;
+				hitsSomething = true;
+			}
+		}
+	}
+
+	return hitsSomething;
+}
+
 
 std::vector<double> ConvertLocalToGlobalCoordinates(std::vector<double> windowCoordinates, int pixelX, int pixelY)
 {
@@ -352,53 +407,88 @@ void DrawColor()
 {
 	for (int y = 0; y <= W_HEIGHT_PIXELS; y++){
 		for (int x = 0; x <= W_WIDTH_PIXELS; x++){
-			if (x == 128 && y == 128){
+			if (x == 0 && y == 256){
 				bool something = true;
 			}
 			// Find the pixel in world coordinates
 			std::vector<double> globalCoordinates = ConvertLocalToGlobalCoordinates(windowTopLeft, x, y);
+			int shapeIndex = -1;
+			int triangleIndex = -1;
 
-			// Make a hit record for this pixel location
-			int lastIntersectedShape = RayTriIntersect(eyePosition, globalCoordinates);
+			bool doesHit = TestShapes(globalCoordinates, &shapeIndex, &triangleIndex);
 			
 			
-			if (lastIntersectedShape != -1)
+			if (doesHit)
 			{
-				tinyobj::shape_t shape = shapes[lastIntersectedShape];
 				if (globalCoordinates[0] == 0 && globalCoordinates[1] == 1 && globalCoordinates[2] == -1)
 				{
 					bool want = true;
 				}
 				// Calculate the pixel's color
-				double Lx = globalCoordinates[0] - lightLocation[0];
-				double Ly = globalCoordinates[1] - lightLocation[1];
-				double Lz = globalCoordinates[2] - lightLocation[2];
+				double Lx = lightLocation[0] - globalCoordinates[0];
+				double Ly = lightLocation[1] - globalCoordinates[1];
+				double Lz = lightLocation[2] - globalCoordinates[2];
 
-				std::vector<double> normalVector = CalculateShapeNormalVector(shape);
-				double NdotL = normalVector[0] * Lx + normalVector[1] * Ly + normalVector[2] * Lz;
+				std::vector<double> lightVector = { Lx, Ly, Lz };
+				lightVector = NormalizeVector(lightVector);
+
+				int indexA = shapes[shapeIndex].mesh.indices[3 * triangleIndex];
+				int indexB = shapes[shapeIndex].mesh.indices[3 * triangleIndex + 1];
+				int indexC = shapes[shapeIndex].mesh.indices[3 * triangleIndex + 2];
 				
-				double Vx = globalCoordinates[0] - eyePosition[0];
-				double Vy = globalCoordinates[1] - eyePosition[1];
-				double Vz = globalCoordinates[2] - eyePosition[2];
-				std::vector<double> LPlusV = { Lx + Vx, Ly + Vy, Lz + Vz };
+				std::vector<double> vertexA = { shapes[shapeIndex].mesh.positions[3* indexA], shapes[shapeIndex].mesh.positions[3 * indexA + 1], shapes[shapeIndex].mesh.positions[3 * indexA + 2] };
+				std::vector<double> vertexB = { shapes[shapeIndex].mesh.positions[3 * indexB], shapes[shapeIndex].mesh.positions[3 * indexB + 1], shapes[shapeIndex].mesh.positions[3 * indexB + 2] };
+				std::vector<double> vertexC = { shapes[shapeIndex].mesh.positions[3 * indexC], shapes[shapeIndex].mesh.positions[3 * indexC + 1], shapes[shapeIndex].mesh.positions[3 * indexC + 2] };
 
-				double LPlusVMagnitude = sqrt(pow(LPlusV[0], 2) + pow(LPlusV[1], 2) + pow(LPlusV[2], 2));
+				std::vector<double> vectorA = { vertexB[0] - vertexA[0], vertexB[1] - vertexA[1], vertexB[2] - vertexA[2] };
+				std::vector<double> vectorB = { vertexC[0] - vertexA[0], vertexC[1] - vertexA[1], vertexC[2] - vertexA[2] };
+
+				std::vector<double> normalVector = CalculateNormalVector(vectorA, vectorB);
+				normalVector[0] = normalVector[0] * -1;
+				normalVector[1] = normalVector[1] * -1;
+				normalVector[2] = normalVector[2] * -1;
+				double NdotL = normalVector[0] * lightVector[0] + normalVector[1] * lightVector[1] + normalVector[2] * lightVector[2];
+				
+				double Vx = eyePosition[0] - globalCoordinates[0];
+				double Vy = eyePosition[1] - globalCoordinates[1];
+				double Vz = eyePosition[2] - globalCoordinates[2];
+				std::vector<double> viewVector = { Vx, Vy, Vz };
+				viewVector = NormalizeVector(viewVector);
+				std::vector<double> LPlusV = { lightVector[0] + viewVector[0], lightVector[1] + viewVector[1], lightVector[2] + viewVector[2] };
+
+				double LPlusVMagnitude = CalculateVectorMagnitude(LPlusV);
 
 				std::vector<double> H = { LPlusV[0] / LPlusVMagnitude, LPlusV[1] / LPlusVMagnitude, LPlusV[2] / LPlusVMagnitude };
+				H = NormalizeVector(H);
 
 				double HdotN = H[0] * normalVector[0] + H[1] * normalVector[1] + H[2] * normalVector[2];
+				double N = atof(shapes[shapeIndex].material.unknown_parameter["N"].c_str());
+				double n = 128 * N / 1000;
+				n = max(1, n);
 
-				//double redIntensity = /*max((*/lightIntensity[0] * shape.material.ambient[0] + lightIntensity[0] * shape.material.diffuse[0] * NdotL +
-				//	lightIntensity[0] * shape.material.specular[0] * HdotN/*), 0)*/;
+				/*double redIntensity = lightIntensity[0] * shapes[shapeIndex].material.ambient[0] +
+					lightIntensity[1] * shapes[shapeIndex].material.diffuse[0] * NdotL + 
+					lightIntensity[2] * shapes[shapeIndex].material.specular[0] * pow(HdotN, max(1, n));
 
-				//double greenIntensity = /*max((*/lightIntensity[1] * shape.material.ambient[1] + lightIntensity[1] * shape.material.diffuse[1] * NdotL +
-				//	lightIntensity[1] * shape.material.specular[1] * HdotN/*), 0)*/;
+				double greenIntensity = lightIntensity[0] * shapes[shapeIndex].material.ambient[1] +
+					lightIntensity[1] * shapes[shapeIndex].material.diffuse[1] * NdotL + 
+					lightIntensity[2] * shapes[shapeIndex].material.specular[1] * pow(HdotN, max(1, n));
 
-				//double blueIntensity = /*max((*/lightIntensity[2] * shape.material.ambient[2] + lightIntensity[2] * shape.material.diffuse[2] * NdotL +
-				//	lightIntensity[2] * shape.material.specular[2] * HdotN/*), 0)*/;
-				double redIntensity = shape.material.ambient[0] + shape.material.diffuse[0];
-				double greenIntensity = shape.material.ambient[1] + shape.material.diffuse[1];
-				double blueIntensity = shape.material.ambient[2] + shape.material.diffuse[2];
+				double blueIntensity = lightIntensity[0] * shapes[shapeIndex].material.ambient[2] +
+					lightIntensity[1] * shapes[shapeIndex].material.diffuse[2] * NdotL + 
+					lightIntensity[2] * shapes[shapeIndex].material.specular[2] * pow(HdotN, max(1, n));*/
+
+				double redIntensity = lightIntensity[0] * shapes[shapeIndex].material.ambient[0] + 
+					lightIntensity[1] * shapes[shapeIndex].material.diffuse[0] * NdotL + 
+					lightIntensity[2] * shapes[shapeIndex].material.specular[0] * pow(HdotN, max(1, n));
+
+				double greenIntensity = lightIntensity[0] * shapes[shapeIndex].material.ambient[1] + 
+					lightIntensity[1] * shapes[shapeIndex].material.diffuse[1] * NdotL + 
+					lightIntensity[2] * shapes[shapeIndex].material.specular[1] * pow(HdotN, max(1, n));
+
+				double blueIntensity = lightIntensity[0] * shapes[shapeIndex].material.ambient[2] + 
+					lightIntensity[1] * shapes[shapeIndex].material.diffuse[2] * NdotL + 
+					lightIntensity[2] * shapes[shapeIndex].material.specular[2] * pow(HdotN, max(1, n));
 
 				if (redIntensity > 1){
 					redIntensity = 1;
@@ -410,6 +500,7 @@ void DrawColor()
 					blueIntensity = 1;
 				}
 				COLORREF color = RGB(redIntensity*255, greenIntensity*255, blueIntensity*255);
+
 				SetPixel(x, y, color);
 			}
 			else

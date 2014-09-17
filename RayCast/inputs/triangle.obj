@@ -1,21 +1,33 @@
 
 mtllib triangle.mtl
 
-# 6 vertices
-v 0.000000 1.000000 -1.000000
-v -1.000000 -1.000000 -1.000000
-v 1.000000 -1.000000 -1.000000
-v -1.000000 1.000000 -0.200000
-v 1.000000 1.000000 -0.200000
-v 0.000000 -1.000000 -0.200000
-
-# 2 triangle elements
-g triangle1
-usemtl green
-f 1 2 3
-
-g triangle2
-usemtl blue
-f 4 5 6
+#g
+v -1 -1 -1
+v -1 1 -1
+v 1 1 -1
+v 1 -1 -1
+v -1 -1 1
+v -1 1 1
+v 1 1 1
+v 1 -1 1
 
 
+g bottom
+usemtl bottom
+f 4 8 1
+f 8 5 1
+
+g right
+usemtl right
+f 3 7 4
+f 7 8 4
+
+g left
+usemtl left
+f 6 2 5
+f 2 1 5
+
+g far
+usemtl far
+f 2 3 1
+f 3 4 1
