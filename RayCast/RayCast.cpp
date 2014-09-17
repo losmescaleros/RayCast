@@ -75,13 +75,13 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	HACCEL hAccelTable;
 
 	// Define the eye position
-	eyePosition = { 0, 0, 3 };
-	windowCenterPosition = { 0, 0, -1 };
+	eyePosition = { 0, 0, -2 };
+	//windowCenterPosition = { 0, 0, -1 };
 	lookAtVector = { 0, 0, 1 };
 	lookUpVector = { 0, 1, 0 };
-	windowTopLeft = { -1, 1, 1 };
-	windowBottomRight = { 1, -1, 1 };
-	lightLocation = { 0, 2, 0 };
+	windowTopLeft = { -1, 1, -1 };
+	//windowBottomRight = { 1, -1, 1 };
+	lightLocation = { 0, 5, 0 };
 	lightIntensity = { 1, 1, 1 };
 
 	std::vector<double> v = { 0, 2, 4 };
@@ -90,7 +90,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
 	// Load the OBJ file
 	//std::string inputFile = "cube.obj";
-	std::string inputFile = "./inputs/triangle.obj";
+	std::string inputFile = "./inputs/cube2.obj";
 	LoadObj(inputFile);
 
 	// Initialize global strings
@@ -323,6 +323,13 @@ bool RayTriIntersect(std::vector<double> eye,
 	double g = point[0] - eye[0];
 	double h = point[1] - eye[1];
 	double i = point[2] - eye[2];
+	std::vector<double> dir = { g, h, i };
+	double mag = CalculateVectorMagnitude(dir);
+
+	g = g / mag;
+	h = h / mag;
+	i = i / mag;
+
 	double j = vertexA[0] - eye[0];
 	double k = vertexA[1] - eye[1];
 	double l = vertexA[2] - eye[2];
@@ -338,13 +345,13 @@ bool RayTriIntersect(std::vector<double> eye,
 		return false;
 	}
 
-	double gamma = (i*(a*k - j*b) + h*(j*c - a*l) + g*(b*l - k*c)) / M;
+	float gamma = (i*(a*k - j*b) + h*(j*c - a*l) + g*(b*l - k*c)) / M;
 	if (gamma < 0 || gamma > 1)
 	{
 		return false;
 	}
 
-	double beta = (j*(e*i - h*f) + k*(g*f - d*i) + l*(d*h - e*g)) / M;
+	float beta = (j*(e*i - h*f) + k*(g*f - d*i) + l*(d*h - e*g)) / M;
 	if (beta < 0 || beta >(1 - gamma))
 	{
 		return false;
@@ -360,7 +367,7 @@ bool TestShapes(std::vector<double> point, int* shapeIndex, int* triangleIndex)
 {
 	bool hitsSomething = false;
 
-	double t = 3;
+	double t = 5;
 
 	for (int s = 0; s < shapes.size(); s++)
 	{
@@ -407,7 +414,7 @@ void DrawColor()
 {
 	for (int y = 0; y <= W_HEIGHT_PIXELS; y++){
 		for (int x = 0; x <= W_WIDTH_PIXELS; x++){
-			if (x == 0 && y == 256){
+			if (x == 128 && y == 160){
 				bool something = true;
 			}
 			// Find the pixel in world coordinates

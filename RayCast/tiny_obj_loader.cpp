@@ -659,6 +659,49 @@ namespace tinyobj {
 				continue;
 			}
 
+			if (0 == strncmp(token, "group", 5) && isSpace(token[5]))
+			{
+				shape_t shape;
+				bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, material, name, is_material_seted);
+				if (ret) {
+					shapes.push_back(shape);
+				}
+				else
+				{
+					for (int i = 0; i < shapes.size(); i++)
+					{
+						if (0 == strncmp(shapes[i].name.c_str(), name.c_str(), name.size()))
+						{
+							shapes[i].material = material;
+						}
+					}
+				}
+
+				is_material_seted = false;
+				faceGroup.clear();
+
+				std::vector<std::string> names;
+				while (!isNewLine(token[0]))
+				{
+					std::string str = parseString(token);
+					names.push_back(str);
+					token += strspn(token, " \t\r");
+				}
+
+				assert(names.size() > 0);
+
+				if (names.size() > 1)
+				{
+					name = names[1];
+				}
+				else
+				{
+					name = "";
+				}
+
+				continue;
+			}
+
 			// group name
 			if (token[0] == 'g' && isSpace((token[1]))) {
 
@@ -722,6 +765,16 @@ namespace tinyobj {
 		bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, material, name, is_material_seted);
 		if (ret) {
 			shapes.push_back(shape);
+		}
+		else
+		{
+			for (int i = 0; i < shapes.size(); i++)
+			{
+				if (0 == strncmp(shapes[i].name.c_str(), name.c_str(), name.size()))
+				{
+					shapes[i].material = material;
+				}
+			}
 		}
 		is_material_seted = false; // for safety
 		faceGroup.clear();  // for safety
