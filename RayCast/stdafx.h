@@ -18,5 +18,10 @@
 #include <tchar.h>
 #include <math.h>
 
+#include "Vertex.h"
+#include "Triangle.h"
+#include "Window.h"
+#include "Light.h"
+
 
 // TODO: reference additional headers your program requires here
