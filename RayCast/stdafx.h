@@ -17,6 +17,9 @@
 #include <memory.h>
 #include <tchar.h>
 #include <math.h>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 #include "Vertex.h"
 #include "Triangle.h"

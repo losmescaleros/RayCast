@@ -5,6 +5,10 @@
 #include "RayCast.h"
 
 #define MAX_LOADSTRING 100
+#define DEFAULT_PIXEL_WIDTH 256
+#define DEFAULT_PIXEL_HEIGHT 256
+#define DEFAULT_WIDTH 2.0
+#define DEFAULT_HEIGHT 2.0
 
 static HWND sHwnd;
 
@@ -37,11 +41,14 @@ void SetWindowHandle(HWND hwnd);
 
 
 // Forward declarations for my functions
+void LoadWindowSettings(std::string windowFile, int* pixelWidth, int* pixelHeight, float* width, float* height);
+void LoadLightSettings(std::string lightsFile);
+bool IsIntWithinRange(int lower, int upper, int target);
 void LoadObj(std::string inputFile);
-std::vector<double> CalculateShapeNormalVector(tinyobj::shape_t shape);
 bool TestShapes(std::vector<double> point, int* shapeIndex, int* triangleIndex);
 COLORREF CalculateColor(Vertex point, tinyobj::shape_t shape, Triangle triangle);
 Triangle GetTriangleFromShapesList(int shapeIndex, int triangleIndex);
+
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -51,20 +58,19 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
- 	// TODO: Place code here.
 	MSG msg;
 	HACCEL hAccelTable;
 
-	// Define the eye position
-	//eyePosition = { 0, 0, -2 };
+	
+	// Load a window file if there is one
+	int pixWidth = 0;
+	int pixHeight = 0;
+	float width = 0;
+	float height = 0;
+	LoadWindowSettings("./window.txt", &pixWidth, &pixHeight, &width, &height);
+	LoadLightSettings("./lights.txt");
+	
 
-	
-	lights = { Light(Vertex(0, 2, 0), 1, 1, 1, whiteColor, 0, 0, 1) };
-	
-	int pixWidth = 256;
-	int pixHeight = 256;
-	float width = 2;
-	float height = 2;
 	float backClippingDistance = 5;
 	Vertex topLeft = Vertex(-1, 1, -1);
 	Vertex lookUp = Vertex(0, 1, 0);
@@ -72,8 +78,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	Vertex eye = Vertex(0, 0, -2);
 	window = Window(pixWidth, pixHeight, width, height, topLeft, lookUp, lookAt, eye, backClippingDistance);
 
+	
+
 	// Load the OBJ file
-	//std::string inputFile = "cube.obj";
 	std::string inputFile = "./inputs/cube2.obj";
 	LoadObj(inputFile);
 
@@ -148,7 +155,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
+      CW_USEDEFAULT, 0, window.pixelWidth, window.pixelHeight, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
    {
@@ -235,6 +242,92 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+void LoadWindowSettings(std::string windowFile, int* pixelWidth, int* pixelHeight, float* width, float* height)
+{
+	std::ifstream input(windowFile);
+	// Set width and heigh to defaults initially
+	*pixelWidth = DEFAULT_PIXEL_WIDTH;
+	*pixelHeight = DEFAULT_PIXEL_HEIGHT;
+	*width = DEFAULT_WIDTH;
+	*height = DEFAULT_HEIGHT;
+	int wPix;
+	int hPix;
+	float w;
+	float h;
+
+	std::string line;
+	while (std::getline(input, line))
+	{
+		std::istringstream iss(line);
+		// If there was an error reading the file, use the default width and height
+		if (!(iss >> wPix >> hPix >> w >> h))
+		{
+			
+		}
+		else
+		{
+			// Use the values read if they are valid
+			if (h > 0 && w > 0)
+			{
+				*width = w;
+				*height = h;
+			}
+			if (wPix > 0 && hPix > 0)
+			{
+				*pixelWidth = wPix;
+				*pixelHeight = hPix;
+			}
+		}
+	}
+
+	
+}
+
+void LoadLightSettings(std::string lightsFile)
+{
+	std::ifstream input(lightsFile);
+
+	std::string line;
+	int lineNumber = 1;
+	while (std::getline(input, line))
+	{
+		float x;
+		float y;
+		float z;
+		int red;
+		int green;
+		int blue;
+		float ambient;
+		float diffuse;
+		float specular;
+
+		std::istringstream iss(line);
+		// If there was an error reading the file, use the default width and height
+		if (!(iss >> x >> y >> z >> red >> green >> blue >> ambient >> diffuse >> specular))
+		{
+			std::cout << "Could not read light input on line " << lineNumber << std::endl;
+		}
+		else
+		{
+			if (IsIntWithinRange(0, 255, red) && IsIntWithinRange(0, 255, blue) && IsIntWithinRange(0, 255, green))
+			{
+				COLORREF color = RGB(red, green, blue);
+				Light light = Light(Vertex(x, y, z), ambient, diffuse, specular, color);
+				lights.push_back(light);
+			}
+			else
+			{
+				std::cout << "Invalid color range specified at line " << lineNumber << std::endl;
+			}
+		}
+	}
+}
+
+bool IsIntWithinRange(int lower, int upper, int target)
+{
+	return target <= upper && target >= lower;
 }
 
 void LoadObj(std::string inputFile)
