@@ -1,0 +1,43 @@
+Mitchell Neville
+CSC 561
+Program 1 - Raycasting
+
+# Implemented Extra Credit
+
+## Arbitrarily Sized Images and Interface Windows
+
+The file 'window.txt' defines the window settings that the program will use. This file consists of a 
+single line which contains pixel width and height as well as world unit width and height. Pixel width 
+and height describe the size of the interface window in pixels, while the world unit width and height
+describe interface window width and height in global coordinate size.
+
+### File Format
+
+```
+*pixel_width* *pixel_height* *world_unit_width* *world_unit_height*
+```
+
+### Example File Content
+
+```
+256 512 2.0 4.0
+```
+
+## Multiple and Arbitrarily Located Lights
+
+The file 'lights.txt' defines the lights within the rendered scene. Each line in the file describes a single
+light's location in world coordinates and color, as well as ambient, diffuse, and specular values. The first
+three terms are world coordinates which are interpreted as floats. The next triplet defines the color values
+ranging from 0 - 255. The last triplet defines the ambient, diffuse, and specular terms in a range from 0 to 1.
+
+### File Format
+
+```
+*x* *y* *z*  *red_color_value* *green_color_value* *blue_color_value* *ambient* *diffuse* *specular*
+```
+
+### Example File Content
+
+```
+0 2 0 255 255 255 1 1 1
+```
