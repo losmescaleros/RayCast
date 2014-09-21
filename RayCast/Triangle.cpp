@@ -3,6 +3,7 @@
 #include "Triangle.h"
 #include "Vertex.h"
 
+/* Create a triangle with three vertices */
 Triangle::Triangle(Vertex vertexA, Vertex vertexB, Vertex vertexC)
 {
 	this->vertexA = vertexA;
@@ -10,6 +11,7 @@ Triangle::Triangle(Vertex vertexA, Vertex vertexB, Vertex vertexC)
 	this->vertexC = vertexC;
 }
 
+/* Implementation of the Moller Trumbore ray triangle intersection algorithm */
 bool Triangle::HitMT(Vertex point, Vertex eye, float* tMax)
 {
 	Vertex d = Vertex::Difference(point, eye);
@@ -66,6 +68,9 @@ bool Triangle::HitMT(Vertex point, Vertex eye, float* tMax)
 	return false;
 }
 
+/* Implementation of ray triangle intersection algorithm using Cramer's rule and the example from
+   chapter 4 of Fundamentals of Computer Graphics 3rd Edition
+*/
 bool Triangle::Hit(float tMin, float *tMax, Vertex point, Vertex eye)
 {
 	float a = vertexA.x - vertexB.x;

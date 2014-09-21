@@ -18,14 +18,16 @@ TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 
 // My Global variables
+// List of shapes
 std::vector<tinyobj::shape_t> shapes;
 std::vector<std::vector<float>> shapeNormals;
 
-
+// Lights in the scene
 std::vector<Light> lights;
-
+// My window object
 Window window;
 COLORREF whiteColor = RGB(255, 255, 255);
+// Default background color is black
 COLORREF backgroundColor = RGB(0, 0, 0);
 
 // Forward declarations of functions included in this code module:
@@ -68,9 +70,10 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	float width = 0;
 	float height = 0;
 	LoadWindowSettings("./window.txt", &pixWidth, &pixHeight, &width, &height);
+	// Load any lights defined for the scene
 	LoadLightSettings("./lights.txt");
 	
-
+	// This is the back clipping distance. The clipping plane is assumed to be parallel to the viewing plane
 	float backClippingDistance = 5;
 	Vertex topLeft = Vertex(-1, 1, -1);
 	Vertex lookUp = Vertex(0, 1, 0);
@@ -285,6 +288,12 @@ void LoadWindowSettings(std::string windowFile, int* pixelWidth, int* pixelHeigh
 	
 }
 
+/**
+ * Read a file which defines any lights within the scene. It is assumed that the file consists of lines
+ * each which define a single light. The line should provide x, y, and z coordinates as floats; red, green,
+ * and blue intensity values as integers between 0 and 255; and ambient, diffuse, and specular terms as floats
+ * between 0 and 1.0.
+**/
 void LoadLightSettings(std::string lightsFile)
 {
 	std::ifstream input(lightsFile);
@@ -325,11 +334,13 @@ void LoadLightSettings(std::string lightsFile)
 	}
 }
 
+/* Is a target integer within a given range */
 bool IsIntWithinRange(int lower, int upper, int target)
 {
 	return target <= upper && target >= lower;
 }
 
+/* Read in a single .OBJ file*/
 void LoadObj(std::string inputFile)
 {	
 	std::vector<tinyobj::material_t> materials;
@@ -346,7 +357,9 @@ void LoadObj(std::string inputFile)
 
 }
 
-
+/* Test each of the shapes loaded to see if there is an intersection. If so, set the shape index
+  and triangle index values so that we can reference the triangle from the shapes list 
+*/
 bool TestShapes(Vertex point, int* shapeIndex, int* triangleIndex)
 {
 	bool hitsSomething = false;
@@ -388,7 +401,8 @@ bool TestShapes(Vertex point, int* shapeIndex, int* triangleIndex)
 	return hitsSomething;
 }
 
-
+/* Calculate the color intensity for the point given its material.
+*/
 COLORREF CalculateColor(Vertex point, tinyobj::shape_t shape, Triangle triangle)
 {
 	COLORREF color;
@@ -452,6 +466,7 @@ COLORREF CalculateColor(Vertex point, tinyobj::shape_t shape, Triangle triangle)
 			lights[i].specular * shape.material.specular[2] * pow(HdotN, n));		
 	}
 
+	// Clamp the color intensities to 1 if they are over 1.
 	if (redIntensity > 1){
 		redIntensity = 1;
 	}
@@ -467,6 +482,7 @@ COLORREF CalculateColor(Vertex point, tinyobj::shape_t shape, Triangle triangle)
 	return color;
 }
 
+/* Given a shape index and triangle index, get the relevant vertices of the triangle and return a Triangle object */
 Triangle GetTriangleFromShapesList(int shapeIndex, int triangleIndex)
 {
 	int indexA = shapes[shapeIndex].mesh.indices[3 * triangleIndex];
@@ -482,6 +498,9 @@ Triangle GetTriangleFromShapesList(int shapeIndex, int triangleIndex)
 	return triangle;
 }
 
+/* The implementation of the raycasting algorithm. For each pixel, determine if there is a triangle hit by the view ray, 
+	find the closest one, calculate its color, and set that pixel as that color.
+*/
 void DrawColor()
 {
 	for (int y = 1; y <= window.pixelHeight; y++){
@@ -519,7 +538,7 @@ void DrawColor()
 	}
 }
 
-
+/* Set a certain pixel to a certain color */
 void SetPixel(int x, int y, COLORREF& color)
 {
 	if (sHwnd == NULL)

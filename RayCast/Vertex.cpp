@@ -2,6 +2,7 @@
 
 #include "Vertex.h"
 
+/* Create a vertex using an x, y, and z coordinate */
 Vertex::Vertex(float x, float y, float z)
 {
 	Vertex::x = x;
@@ -16,6 +17,7 @@ Vertex::Vertex()
 	Vertex::z = 0.0f;
 }
 
+/* The subtraction of two vertices. Subtract the first vertex from the second. */
 Vertex Vertex::Difference(Vertex firstVertex, Vertex secondVertex)
 {
 	Vertex difference = Vertex(firstVertex.x - secondVertex.x,
@@ -25,6 +27,7 @@ Vertex Vertex::Difference(Vertex firstVertex, Vertex secondVertex)
 	return difference;
 }
 
+/* Add two vertices */
 Vertex Vertex::Sum(Vertex firstVertex, Vertex secondVertex)
 {
 	Vertex sum = Vertex(firstVertex.x + secondVertex.x,
@@ -34,6 +37,7 @@ Vertex Vertex::Sum(Vertex firstVertex, Vertex secondVertex)
 	return sum;
 }
 
+/* Find the cross-product of two vertices */
 Vertex Vertex::CrossProduct(Vertex firstVertex, Vertex secondVertex)
 {
 	// Nx = AyBz - AzBy
@@ -51,11 +55,13 @@ Vertex Vertex::CrossProduct(Vertex firstVertex, Vertex secondVertex)
 	return crossProduct;
 }
 
+/* Calculate the magnitude (distance) of a vector */
 float Vertex::CalculateMagnitude()
 {
 	return sqrt(this->x * this->x + this->y * this->y + this->z * this->z);
 }
 
+/* Find the dot product of two vectors */
 float Vertex::DotProduct(Vertex firstVertex, Vertex secondVertex)
 {
 	float product = firstVertex.x * secondVertex.x + firstVertex.y * secondVertex.y + firstVertex.z * secondVertex.z;
@@ -63,6 +69,7 @@ float Vertex::DotProduct(Vertex firstVertex, Vertex secondVertex)
 	return product;
 }
 
+/* Normalize a vector to be a unit vector */
 Vertex Vertex::Normalize()
 {
 	float magnitude = this->CalculateMagnitude();
